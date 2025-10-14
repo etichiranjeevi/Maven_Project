@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 echo "📥 Checking out source code..."
-                git branch: 'main', url: 'https://github.com/etichiranjeevi/Maven_Project.git'
+                git branch: 'master', url: 'https://github.com/etichiranjeevi/Maven_Project.git'
             }
         }
 
