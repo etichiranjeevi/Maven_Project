@@ -2,42 +2,48 @@ pipeline {
     agent any
 
     environment {
-        WAR_NAME = "webapp.war"             // Change if your WAR name is different
-        DEPLOY_NAME = "ROOT.war"            // Rename to ROOT.war to deploy as default app
-        TOMCAT_WEBAPPS = "/opt/tomcat/webapps" // Update if Tomcat is installed elsewhere
+        WAR_NAME = "webapp.war"
+        DEPLOY_NAME = "ROOT.war"
+        REMOTE_HOST = "3.80.219.228"   // 🔹 change this
+        REMOTE_USER = "root"                    // 🔹 since you said you log in as root
+        REMOTE_WEBAPPS = "/opt/tomcat/webapps"  // 🔹 adjust if different
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                echo "📥 Checking out source code..."
                 git branch: 'master', url: 'https://github.com/etichiranjeevi/Maven_Project.git'
             }
         }
 
-        stage('Build WAR using Maven') {
+        stage('Build WAR with Maven') {
             steps {
-                echo "⚙️ Building project with Maven..."
-                sh 'mvn clean package -DskipTests'
+                sh "mvn clean package -DskipTests"
             }
         }
 
-        stage('Deploy to Tomcat') {
+        stage('Deploy to Remote Tomcat') {
             steps {
-                echo "🚀 Deploying WAR to Tomcat..."
-
+                echo "🚀 Deploying WAR to remote Tomcat server..."
+                // use ssh credentials already available
                 sh """
-                    echo "Stopping Tomcat service..."
-                    systemctl stop tomcat
+                    # Copy WAR to remote server
+                    scp target/${WAR_NAME} ${REMOTE_USER}@${REMOTE_HOST}:/tmp/
 
-                    echo "Cleaning existing webapps..."
-                    rm -rf ${TOMCAT_WEBAPPS}/*
+                    # SSH into remote server and deploy
+                    ssh ${REMOTE_USER}@${REMOTE_HOST} << 'EOF'
+                        echo "Stopping Tomcat..."
+                        systemctl stop tomcat
 
-                    echo "Deploying new WAR..."
-                    cp target/${WAR_NAME} ${TOMCAT_WEBAPPS}/${DEPLOY_NAME}
+                        echo "Cleaning old deployments..."
+                        rm -rf ${REMOTE_WEBAPPS}/*
 
-                    echo "Starting Tomcat service..."
-                    systemctl start tomcat
+                        echo "Deploying new WAR..."
+                        mv /tmp/${WAR_NAME} ${REMOTE_WEBAPPS}/${DEPLOY_NAME}
+
+                        echo "Starting Tomcat..."
+                        systemctl start tomcat
+                    EOF
                 """
             }
         }
@@ -45,10 +51,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment successful! Application is available at http://<your-server-ip>:8080/"
+            echo "✅ Remote deployment successful! Visit: http://${REMOTE_HOST}:8080/"
         }
         failure {
-            echo "❌ Deployment failed. Check Jenkins console logs for errors."
+            echo "❌ Remote deployment failed. Check Jenkins logs."
         }
     }
 }
