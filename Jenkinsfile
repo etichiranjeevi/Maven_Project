@@ -22,31 +22,26 @@ pipeline {
             }
         }
 
-        stage('Deploy to Remote Tomcat') {
-            steps {
-                echo "🚀 Deploying WAR to remote Tomcat server..."
-                // use ssh credentials already available
-                sh """
-                    # Copy WAR to remote server
-                    scp target/${WAR_NAME} ${REMOTE_USER}@${REMOTE_HOST}:/tmp/
+ stage('Deploy to Remote Tomcat') {
+    steps {
+        echo "🚀 Deploying WAR to remote Tomcat server..."
+        sh """
+            scp -o StrictHostKeyChecking=no target/${WAR_NAME} ${REMOTE_USER}@${REMOTE_HOST}:/tmp/
 
-                    # SSH into remote server and deploy
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} << 'EOF'
-                        echo "Stopping Tomcat..."
-                        systemctl stop tomcat
+            ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} "
+                echo 'Stopping Tomcat...'
+                systemctl stop tomcat
+                echo 'Cleaning old deployments...'
+                rm -rf ${REMOTE_WEBAPPS}/*
+                echo 'Deploying new WAR...'
+                mv /tmp/${WAR_NAME} ${REMOTE_WEBAPPS}/${DEPLOY_NAME}
+                echo 'Starting Tomcat...'
+                systemctl start tomcat
+            "
+        """
+    }
+}
 
-                        echo "Cleaning old deployments..."
-                        rm -rf ${REMOTE_WEBAPPS}/*
-
-                        echo "Deploying new WAR..."
-                        mv /tmp/${WAR_NAME} ${REMOTE_WEBAPPS}/${DEPLOY_NAME}
-
-                        echo "Starting Tomcat..."
-                        systemctl start tomcat
-                    EOF
-                """
-            }
-        }
     }
 
     post {
